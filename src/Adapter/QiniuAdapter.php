@@ -781,7 +781,7 @@ class QiniuAdapter implements AdapterInterface
 
     public function getKeepPath($dirname, $filename = null)
     {
-        return FlysystemUtil::normalizePath($dirname . '/' . $filename ?
-            FlysystemUtil::normalizePath($filename) : '.keep');
+        return FlysystemUtil::normalizePath($dirname . '/' .
+            ($filename ? FlysystemUtil::normalizePath($filename) : '.keep'));
     }
 }
