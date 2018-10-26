@@ -13,7 +13,7 @@ class FilesystemAdapter implements AdapterInterface
 
     protected $filesystem;
 
-    public function __construct($bucket, $filesystem, $domain = null)
+    public function __construct($bucket, $filesystem, $config = [])
     {
         $this->bucket = $bucket;
 
@@ -26,8 +26,8 @@ class FilesystemAdapter implements AdapterInterface
 
         $this->filesystem = $filesystem;
 
-        if ($domain !== null)
-            $this->setDomain($domain);
+        if (isset($config['domain']))
+            $this->setDomain($config['domain']);
     }
     /**
      * Write a new file.

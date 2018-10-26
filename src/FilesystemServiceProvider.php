@@ -13,16 +13,24 @@ class FilesystemServiceProvider extends ServiceProvider
     
     public function register()
     {
+        $this->app->singleton(Manager::class, function () {
+            return new Manager($this->getConfig());
+        });
+
         $this->app->booting(function () {
             $this->app->extend('filesystem', function ($filesystem, $app) {
                 return $filesystem->extend('qiniu', function ($app, $config) {
-                    $this->app->singleton('filesystem.disk.qiniu.driver', function () use ($config) {
-                        return new Filesystem(new QiniuAdapter($config));
-                    });
+                    $disk = isset($config['disk']) ? $config['disk'] : null;
+                    $bucket = isset($config['bucket']) ? $config['bucket'] : null;
 
-                    return $this->app->make('filesystem.disk.qiniu.driver');
+                    return $this->app->make(Manager::class)->get($disk, $bucket);
                 });
             });
         });
+    }
+
+    protected function getConfig()
+    {
+        return $this->app['config']['qiniu'];
     }
 }

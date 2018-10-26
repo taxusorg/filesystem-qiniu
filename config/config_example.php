@@ -8,11 +8,8 @@ return [
 
         'diskname' => [
             'driver' => 'qiniu',
-            'key' => 'your key',
-            'secret' => 'your secret',
-            'bucket' => 'your bucket',
-            'visibility' => 'public',
-            'domain' => 'yout domain with Qiniu',
+            //'disk' => 'set in qiniu', //disk name set in config/qiniu.php Or don't set if use defalut
+            //'bucket' => 'set in qiniu', //bucket name set in config/qiniu.php Or don't set if use defalut
         ],
 
     ],
