@@ -200,7 +200,7 @@ class Qiniu implements QiniuInterface
     {
         $files = array_map(function ($array) {
             return $array['path'];
-        }, $this->listContentsIncludeKeep($dirname, true));
+        }, $this->listContentsIncludeKeep($bucket, $dirname, true));
 
         $ops = $this->getBucketManager()->buildBatchDelete($bucket, $files);
         list($result, $error) = $this->getBucketManager()->batch($ops);

@@ -13,8 +13,8 @@ class NotifyTest extends TestCase
     private $access_key;
     private $secret_key;
 
-    private $bucket = 'cloud';
-    private $domain = 'domain.ext';
+    private $bucket;
+    private $domain;
 
     protected $adapter;
 
@@ -32,10 +32,13 @@ class NotifyTest extends TestCase
         $this->access_key = $_ENV['QINIU_KEY'];
         $this->secret_key = $_ENV['QINIU_SECRET'];
 
+        $this->bucket = $_ENV['QINIU_BUCKET'];
+        $this->domain = $_ENV['QINIU_DOMAIN'];
+
         $this->config = new Config();
 
         $disk = new Qiniu($this->access_key, $this->secret_key);
-        $adapter = new FilesystemAdapter('cloud', $disk);
+        $adapter = new FilesystemAdapter('cloud', $disk, ['domain' => $this->domain]);
 
         $this->adapter = $adapter;
     }
@@ -69,6 +72,8 @@ class NotifyTest extends TestCase
         $result = $this->adapter->write($path, $content, $this->config);
 
         $this->assertEquals($result['path'], $path);
+
+        $this->assertEquals($content, $this->adapter->read($path)['contents']);
     }
 
     public function testUpdate()
@@ -79,25 +84,29 @@ class NotifyTest extends TestCase
         $result = $this->adapter->update($path, $content, $this->config);
 
         $this->assertEquals($result['path'], $path);
+
+        $this->assertEquals($content, $this->adapter->read($path)['contents']);
     }
 
     public function testWriteStream()
     {
-        $stream = fopen('./tests/test.png', 'rb');
-        $path = 'test/testWriteStream.png';
+        $path = 'test/testWriteStream.txt';
+        $path2 = 'test/testWriteStream2.txt';
+        $content = 'file content. Date:' . date("Y-m-d H:i:s");
 
-        $result = $this->adapter->writeStream($path, $stream, $this->config);
+        $result = $this->adapter->write($path, $content, $this->config);
 
+        $stream = $this->adapter->readStream($path)['stream'];
+
+        $this->assertTrue(is_resource($stream));
+
+        $result2 = $this->adapter->writeStream($path2, $stream, $this->config);
+
+        $this->assertEquals($result['path'], $path);
+        $this->assertEquals($result2['path'], $path2);
+        // todo: something wrong here.
+        $this->assertEquals($this->adapter->read($path)['contents'], $this->adapter->read($path2)['contents']);
     }
-
-/*    public function testWriteStream2()
-    {
-        $stream = fopen('./tests/bigTest.zip', 'rb');
-        $path = 'test/testWriteStreamBig.zip';
-
-        $result = $this->adapter->writeStream($path, $stream, $this->config);
-
-    }*/
 
     public function testRename()
     {
@@ -109,6 +118,8 @@ class NotifyTest extends TestCase
         $result = $this->adapter->rename($path, $path2);
 
         $this->assertTrue($result);
+
+        $this->assertEquals($content, $this->adapter->read($path2)['contents']);
     }
 
     public function testCopy()
@@ -121,24 +132,8 @@ class NotifyTest extends TestCase
         $result = $this->adapter->copy($path, $path2);
 
         $this->assertTrue($result);
-    }
 
-    public function testNormalizePath()
-    {
-        $paths = [];
-        $paths[] = '';
-        $paths[] = '/';
-        $paths[] = 'dir';
-        $paths[] = '/dir';
-        $paths[] = 'dir/';
-        $paths[] = '/dir/';
-        $paths[] = 'dir/dir/';
-        $paths[] = 'dir/file.txt';
-        $paths[] = '/dir/file.txt';
-
-        foreach ($paths as $path) {
-            print_r('path:'.Util::normalizePath($path) . "\n");
-        }
+        $this->assertEquals($this->adapter->read($path)['contents'], $this->adapter->read($path2)['contents']);
     }
 
     public function testListContents()
@@ -148,30 +143,6 @@ class NotifyTest extends TestCase
         $files = $this->adapter->listContents($path, false);
 
         $this->assertTrue(is_array($files));
-    }
-
-    public function testRead()
-    {
-        $path = 'test/testRead.' . date("Y-m-d-H-i-s") . '.txt';
-        $contents = 'file content. Date:' . date("Y-m-d H:i:s");
-
-        $this->adapter->write($path, $contents, $this->config);
-
-        $result = $this->adapter->read($path);
-
-        $this->assertEquals($contents, $result['contents']);
-    }
-
-    public function testReadStream()
-    {
-        $path = 'test/testRead.' . date("Y-m-d-H-i-s") . '.txt';
-        $contents = 'file content. Date:' . date("Y-m-d H:i:s");
-
-        $this->adapter->write($path, $contents, $this->config);
-
-        $result = $this->adapter->readStream($path);
-
-        $this->assertEquals($contents, stream_get_contents($result['stream']));
     }
 
     public function testDelete()
