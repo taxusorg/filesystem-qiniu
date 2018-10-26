@@ -2,14 +2,20 @@
 namespace Tests;
 
 use Dotenv\Dotenv;
-use League\Flysystem\Adapter\Local;
 use League\Flysystem\Config;
 use League\Flysystem\Util;
 use PHPUnit\Framework\TestCase;
-use Taxusorg\FilesystemQiniu\Adapter\QiniuAdapter;
+use Taxusorg\FilesystemQiniu\FilesystemAdapter;
+use Taxusorg\FilesystemQiniu\Qiniu;
 
 class NotifyTest extends TestCase
 {
+    private $access_key;
+    private $secret_key;
+
+    private $bucket = 'cloud';
+    private $domain = 'domain.ext';
+
     protected $adapter;
 
     protected $config;
@@ -20,36 +26,39 @@ class NotifyTest extends TestCase
 
         date_default_timezone_set('PRC');
 
-        $dotenv = new Dotenv('./');
+        $dotenv = new Dotenv('../');
         $dotenv->load();
+
+        $this->access_key = $_ENV['QINIU_KEY'];
+        $this->secret_key = $_ENV['QINIU_SECRET'];
 
         $this->config = new Config();
 
-        $this->adapter = new QiniuAdapter();
-        $this->adapter->setAccessKey($_ENV['KEY']);
-        $this->adapter->setSecretKey($_ENV['SECRET']);
-        $this->adapter->setBucket($_ENV['BUCKET']);
-        $this->adapter->setDomain($_ENV['DOMAIN']);
+        $disk = new Qiniu($this->access_key, $this->secret_key);
+        $adapter = new FilesystemAdapter('cloud', $disk);
 
+        $this->adapter = $adapter;
     }
 
     public function testGetUploadToken()
     {
         $token = $this->adapter->getUploadToken();
 
-        $this->assertStringStartsWith($_ENV['KEY'], $token);
-    }
-
-    public function testDomain()
-    {
-        print_r($this->adapter->getDomain('http') . "\n");
+        $this->assertStringStartsWith($this->access_key, $token);
     }
 
     public function testGetDownloadUrl()
     {
         $path = 'dir/file name.ext';
 
-        print_r($this->adapter->getDownloadUrl($path) . "\n");
+        $this->adapter->setDomain('domain.ext');
+        $this->assertEquals($this->adapter->getDownloadUrl($path), 'http://domain.ext/' . $path);
+
+        $this->adapter->setDomain('https://domain.ext');
+        $this->assertEquals($this->adapter->getDownloadUrl($path), 'https://domain.ext/' . $path);
+
+        $this->adapter->setDomain('ftp://domain.ext');
+        $this->assertEquals($this->adapter->getDownloadUrl($path), 'ftp://domain.ext/' . $path);
     }
 
     public function testWrite()

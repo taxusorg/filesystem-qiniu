@@ -584,7 +584,7 @@ class Qiniu implements QiniuInterface
             return $this->auth;
         }
 
-        return $this->auth = new Auth($this->accessKey, $this->secretKey);
+        return $this->auth = new Auth($this->access_key, $this->secret_key);
     }
 
     public function getKeepPath($dirname, $filename = null)

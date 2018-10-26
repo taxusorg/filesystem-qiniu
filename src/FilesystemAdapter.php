@@ -379,4 +379,9 @@ class FilesystemAdapter implements AdapterInterface
 
         return $url;
     }
+
+    public function getUploadToken()
+    {
+        return $this->filesystem->getUploadToken($this->bucket);
+    }
 }
