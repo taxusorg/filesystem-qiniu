@@ -45,52 +45,8 @@ class Util
         return $dirs;
     }
 
-    public static function isNotKeep($file)
-    {
-        return $file['type'] == 'dir' || $file['basename'] != '.keep';
-    }
-
     public static function dirname($path)
     {
         return dirname(FlysystemUtil::normalizePath($path));
-    }
-
-    /**
-     * @param string $domain
-     * @return array
-     */
-    public static function normalizeDomain($domain)
-    {
-        $parsed_url = parse_url(trim($domain));
-        $scheme     = isset($parsed_url['scheme']) ? $parsed_url['scheme'] : 'http';
-        $path       = isset($parsed_url['path']) ? FlysystemUtil::normalizePath($parsed_url['path']) : '';
-        $host       = isset($parsed_url['host']) ? $parsed_url['host']. '/' .$path : $path;
-
-        return [$host, $scheme];
-    }
-
-    public static function normalizeScheme($protocol = null, $default = 'http')
-    {
-        if (! in_array($default, ['http', 'https'])) {
-            if ($default === true) {
-                $default = 'https';
-            } elseif ($default === false) {
-                $default = 'http';
-            } else {
-                throw new \Error('scheme mast in [true, false, "http", "https"]');
-            }
-        }
-
-        if (! in_array($protocol, ['http', 'https'])) {
-            if ($protocol === true) {
-                $protocol = 'https';
-            } elseif ($protocol === false) {
-                $protocol = 'http';
-            } else {
-                $protocol = $default;
-            }
-        }
-
-        return $protocol;
     }
 }

@@ -1,45 +1,36 @@
 <?php
-namespace Taxusorg\FilesystemQiniu\Adapter;
+namespace Taxusorg\FilesystemQiniu;
 
-use Qiniu\Processing\Operation;
-use Qiniu\Processing\PersistentFop;
-use Taxusorg\FilesystemQiniu\Util;
-use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
 use League\Flysystem\Util as FlysystemUtil;
 use League\Flysystem\Util\ContentListingFormatter;
-use Qiniu\Config as QiniuConfig;
 use Qiniu\Auth;
-use Qiniu\Storage\FormUploader;
+use Qiniu\Config as QiniuConfig;
+use Qiniu\Processing\Operation;
+use Qiniu\Processing\PersistentFop;
 use Qiniu\Storage\ResumeUploader;
 use Qiniu\Storage\UploadManager;
 use Qiniu\Storage\BucketManager;
 
-class QiniuAdapter implements AdapterInterface
+class Qiniu implements QiniuInterface
 {
-    private $accessKey = '';
-    private $secretKey = '';
-    private $bucket = '';
-    private $domain = '';
-    private $protocol;
-    private $private_protocol;
-    private $notify_url;
+    private $access_key = '';
+    private $secret_key = '';
+
+    private $keep_name = '.keep';
 
     private $auth;
     private $uploadManager;
     private $bucketManager;
-    private $operation;
     private $persistentFop;
     private $qiniuConfig;
 
-    public function __construct($config = [])
+    public function __construct($access_key, $secret_key, $keep_name = null)
     {
-        isset($config['key']) && $this->setAccessKey($config['key']);
-        isset($config['secret']) && $this->setSecretKey($config['secret']);
-        isset($config['bucket']) && $this->setBucket($config['bucket']);
-        isset($config['domain']) && $this->setDomain($config['domain']);
-        isset($config['protocol']) && $this->setProtocol($config['protocol']);
-        isset($config['private_protocol']) && $this->setPrivateProtocol($config['private_protocol']);
+        $this->access_key = (string) $access_key;
+        $this->secret_key = (string) $secret_key;
+
+        $this->keep_name = $keep_name == null ? $this->keep_name : FlysystemUtil::normalizePath($keep_name);
 
         $this->qiniuConfig = new QiniuConfig();
     }
@@ -47,17 +38,16 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Write a new file.
      *
+     * @param string $bucket
      * @param string $path
      * @param string|resource $contents
      * @param Config $config   Config object
      * @return array|false false on failure file meta data on success
      */
-    public function write($path, $contents, Config $config)
+    public function write($bucket, $path, $contents, Config $config)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         list($result, $error) = $this->getUploadManager()->put(
-            $this->getAuth()->uploadToken($this->bucket, $path),
+            $this->getAuth()->uploadToken($bucket, $path),
             $path,
             $contents,
             $config->get('params', null),
@@ -74,52 +64,40 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Write a new file using a stream.
      *
+     * @param string   $bucket
      * @param string   $path
      * @param resource $resource
      * @param Config   $config   Config object
      * @return array|false false on failure file meta data on success
      * @throws
      */
-    public function writeStream($path, $resource, Config $config)
+    public function writeStream($bucket, $path, $resource, Config $config)
     {
-        $key = FlysystemUtil::normalizePath($path);
-
         if (is_resource($resource) && !stream_is_local($resource))
-            return $this->write($key, stream_get_contents($resource), $config);
+            return $this->write($bucket, $path, stream_get_contents($resource), $config); // todo: when ! stream_is_local ?
 
         $file = $resource;
-        $params = UploadManager::trimParams($config->get('params'));
         $stat = fstat($file);
         $size = $stat['size'];
-        $mime = $config->get('mime', 'application/octet-stream');
-        $upToken = $this->getAuth()->uploadToken($this->bucket, $key);
 
         if ($size <= QiniuConfig::BLOCK_SIZE) {
-            $data = fread($file, $size);
-            if ($data === false) {
-                throw new \Exception("file can not read", 1);
-            }
-            list($result, $error) = FormUploader::put(
-                $upToken,
-                $key,
-                $data,
-                $this->qiniuConfig,
-                $params,
-                $mime,
-                $config->get('checkCrc')
-            );
-        }else{
-            $up = new ResumeUploader(
-                $upToken,
-                $key,
-                $file,
-                $size,
-                $params,
-                $mime,
-                $this->qiniuConfig
-            );
-            list($result, $error) = $up->upload();
+            return $this->write($bucket, $path, stream_get_contents($resource), $config);
         }
+
+        $params = UploadManager::trimParams($config->get('params'));
+        $mime = $config->get('mime', 'application/octet-stream');
+        $upToken = $this->getAuth()->uploadToken($bucket, $path);
+
+        $up = new ResumeUploader(
+            $upToken,
+            $path,
+            $file,
+            $size,
+            $params,
+            $mime,
+            $this->qiniuConfig
+        );
+        list($result, $error) = $up->upload(basename($path));
 
         if($error !== null)
             return false;
@@ -130,43 +108,44 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Update a file.
      *
+     * @param string $bucket
      * @param string $path
      * @param string $contents
      * @param Config $config   Config object
      * @return array|false false on failure file meta data on success
      */
-    public function update($path, $contents, Config $config)
+    public function update($bucket, $path, $contents, Config $config)
     {
-        return $this->write($path, $contents, $config);
+        return $this->write($bucket, $path, $contents, $config);
     }
 
     /**
      * Update a file using a stream.
      *
+     * @param string   $bucket
      * @param string   $path
      * @param resource $resource
      * @param Config   $config   Config object
      * @return array|false false on failure file meta data on success
      * @throws
      */
-    public function updateStream($path, $resource, Config $config)
+    public function updateStream($bucket, $path, $resource, Config $config)
     {
-        return $this->writeStream($path, $resource, $config);
+        return $this->writeStream($bucket, $path, $resource, $config);
     }
 
     /**
      * Rename a file.
      *
+     * @param string $old_bucket
      * @param string $old
+     * @param string $new_bucket
      * @param string $new
      * @return bool
      */
-    public function rename($old, $new)
+    public function rename($old_bucket, $old, $new_bucket, $new)
     {
-        $old = FlysystemUtil::normalizePath($old);
-        $new = FlysystemUtil::normalizePath($new);
-
-        $error = $this->getBucketManager()->move($this->bucket, $old, $this->bucket, $new, false);
+        $error = $this->getBucketManager()->move($old_bucket, $old, $new_bucket, $new, false);
 
         if ($error !== null)
             return false;
@@ -177,16 +156,15 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Copy a file.
      *
+     * @param string $old_bucket
      * @param string $old
+     * @param string $new_bucket
      * @param string $new
      * @return bool
      */
-    public function copy($old, $new)
+    public function copy($old_bucket, $old, $new_bucket, $new)
     {
-        $old = FlysystemUtil::normalizePath($old);
-        $new = FlysystemUtil::normalizePath($new);
-
-        $error = $this->getBucketManager()->copy($this->bucket, $old, $this->bucket, $new, false);
+        $error = $this->getBucketManager()->copy($old_bucket, $old, $new_bucket, $new, false);
 
         if ($error !== null)
             return false;
@@ -197,14 +175,13 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Delete a file.
      *
+     * @param string $bucket
      * @param string $path
      * @return bool
      */
-    public function delete($path)
+    public function delete($bucket, $path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
-        $error = $this->getBucketManager()->delete($this->bucket, $path);
+        $error = $this->getBucketManager()->delete($bucket, $path);
 
         if ($error !== null)
             return false;
@@ -215,18 +192,17 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Delete a directory.
      *
+     * @param string $bucket
      * @param string $dirname
      * @return bool
      */
-    public function deleteDir($dirname)
+    public function deleteDir($bucket, $dirname)
     {
-        $dirname = FlysystemUtil::normalizePath($dirname);
-
         $files = array_map(function ($array) {
             return $array['path'];
         }, $this->listContentsIncludeKeep($dirname, true));
 
-        $ops = $this->getBucketManager()->buildBatchDelete($this->bucket, $files);
+        $ops = $this->getBucketManager()->buildBatchDelete($bucket, $files);
         list($result, $error) = $this->getBucketManager()->batch($ops);
 
         if ($error !== null)
@@ -238,29 +214,29 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Create a directory.
      *
+     * @param string $bucket
      * @param string $dirname directory name
      * @param Config $config
      * @return array|false
      */
-    public function createDir($dirname, Config $config)
+    public function createDir($bucket, $dirname, Config $config)
     {
-        return $this->createDirKeep($dirname, $config);
+        return $this->createDirKeep($bucket, $dirname, $config);
     }
 
     /**
      * Create a directory keep.
      *
+     * @param string $bucket
      * @param string $dirname directory name
      * @param Config $config
      * @return array|false
      */
-    public function createDirKeep($dirname, Config $config)
+    public function createDirKeep($bucket, $dirname, Config $config)
     {
-        $dirname = FlysystemUtil::normalizePath($dirname);
-
         $file = $this->getKeepPath($dirname);
 
-        $this->write($file, '', $config);
+        $this->write($bucket, $file, '', $config);
 
         return ['path' => $dirname, 'type' => 'dir'];
     }
@@ -268,41 +244,29 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Delete a directory keep.
      *
+     * @param string $bucket
      * @param string $dirname directory name
-     * @param Config $config
      * @return array|false
      */
-    public function deleteDirKeep($dirname, Config $config)
+    public function deleteDirKeep($bucket, $dirname)
     {
         $file = $this->getKeepPath($dirname);
 
-        if($this->has($file))
-            return $this->delete($file);
+        if($this->has($bucket, $file))
+            return $this->delete($bucket, $file);
 
-        return true;
-    }
-
-    /**
-     * Set the visibility for a file.
-     *
-     * @param string $path
-     * @param string $visibility
-     * @return array|false file meta data
-     */
-    public function setVisibility($path, $visibility)
-    {
         return true;
     }
 
     /**
      * Read a file.
      *
-     * @param string $path
+     * @param string $url
      * @return array|false
      */
-    public function read($path)
+    public function read($url)
     {
-        $location = $this->getPrivateDownloadUrl($path);
+        $location = $this->getPrivateDownloadUrl($url);
         // todo: if file not exists.
         $contents = file_get_contents($location);
 
@@ -316,12 +280,12 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Read a file as a stream.
      *
-     * @param string $path
+     * @param string $url
      * @return array|false
      */
-    public function readStream($path)
+    public function readStream($url)
     {
-        $location = $this->getPrivateDownloadUrl($path);
+        $location = $this->getPrivateDownloadUrl($url);
         // todo: if file not exists.
         // todo: about http stream
         $context = stream_context_create([
@@ -342,35 +306,35 @@ class QiniuAdapter implements AdapterInterface
     /**
      * List contents of a directory.
      *
+     * @param string $bucket
      * @param string $directory
      * @param bool   $recursive
      * @return array
      */
-    public function listContents($directory = '', $recursive = false)
+    public function listContents($bucket, $directory = '', $recursive = false)
     {
-        $_data = $this->listContentsIncludeKeep($directory, $recursive);
+        $_data = $this->listContentsIncludeKeep($bucket, $directory, $recursive);
 
-        return array_filter($_data, [Util::class, 'isNotKeep']);
+        return array_filter($_data, [$this, 'isNotKeep']);
     }
 
     /**
      * List contents of a directory.
      *
+     * @param string $bucket
      * @param string $directory
      * @param bool   $recursive
      * @return array
      */
-    public function listContentsIncludeKeep($directory = '', $recursive = false)
+    public function listContentsIncludeKeep($bucket, $directory = '', $recursive = false)
     {
-        $directory = FlysystemUtil::normalizePath($directory);
-
         $prefix = $directory;
         $marker = null;
         $limit = 1000;
         $delimiter = null; // todo: delimiter able
         $_data = [];
         do {
-            list($result, $error) = $this->getBucketManager()->listFiles($this->bucket, $prefix, $marker, $limit, $delimiter);
+            list($result, $error) = $this->getBucketManager()->listFiles($bucket, $prefix, $marker, $limit, $delimiter);
             if ($error !== null) return false; // todo: throw
             $_data = array_merge($_data, $result['items']);
         } while (array_key_exists('marker', $result) && $marker = $result['marker']);
@@ -384,14 +348,13 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Get stat
      *
+     * @param string $bucket
      * @param string $path
      * @return array|false
      */
-    public function stat($path)
+    public function stat($bucket, $path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
-        list($result, $error) = $this->getBucketManager()->stat($this->bucket, $path);
+        list($result, $error) = $this->getBucketManager()->stat($bucket, $path);
 
         if ($error !== null)
             return false; // todo: false or throw
@@ -404,115 +367,75 @@ class QiniuAdapter implements AdapterInterface
     /**
      * Check whether a file exists.
      *
+     * @param string $bucket
      * @param string $path
      * @return array|bool|null
      */
-    public function has($path)
+    public function has($bucket, $path)
     {
-        return $this->stat($path) ? true : false;
+        return $this->stat($bucket, $path) ? true : false;
     }
 
     /**
      * Get all the meta data of a file or directory.
      *
+     * @param string $bucket
      * @param string $path
      * @return array|false
      */
-    public function getMetadata($path)
+    public function getMetadata($bucket, $path)
     {
-        return $this->stat($path);
+        return $this->stat($bucket, $path);
     }
 
     /**
      * Get all the meta data of a file or directory.
      *
+     * @param string $bucket
      * @param string $path
      * @return array|false
      */
-    public function getSize($path)
+    public function getSize($bucket, $path)
     {
-        return $this->stat($path);
+        return $this->stat($bucket, $path);
     }
 
     /**
      * Get the mimetype of a file.
      *
+     * @param string $bucket
      * @param string $path
      * @return array|false
      */
-    public function getMimetype($path)
+    public function getMimetype($bucket, $path)
     {
-        return $this->stat($path);
+        return $this->stat($bucket, $path);
     }
 
     /**
      * Get the timestamp of a file.
      *
+     * @param string $bucket
      * @param string $path
      * @return array|false
      */
-    public function getTimestamp($path)
+    public function getTimestamp($bucket, $path)
     {
-        return $this->stat($path);
-    }
-
-    /**
-     * Get the visibility of a file.
-     *
-     * @param string $path
-     * @return array|false
-     */
-    public function getVisibility($path)
-    {
-        return ['visibility' => static::VISIBILITY_PUBLIC];
-    }
-
-    /**
-     * Get url
-     *
-     * @param string $path
-     * @param string|null $protocol
-     * @return string
-     * @throws
-     */
-    public function getDownloadUrl($path, $protocol = null)
-    {
-        $path = FlysystemUtil::normalizePath($path);
-
-        $protocol = Util::normalizeScheme($protocol, $this->protocol);
-
-        $baseUrl = $protocol.'://'.$this->getDomain().'/'.str_replace(" ","%20",$path);
-
-        return $baseUrl;
+        return $this->stat($bucket, $path);
     }
 
     /**
      * Get url for Read.
      *
-     * @param string $path
-     * @param string|null $protocol
+     * @param string $url
      * @return string
      * @throws
      */
-    public function getPrivateDownloadUrl($path, $protocol = null)
+    public function getPrivateDownloadUrl($url)
     {
-        $url = $this->getDownloadUrl($path, $protocol);
-
         $location = $this->getAuth()->privateDownloadUrl($url);
         // todo: if file not exists.
         return $location;
-    }
-
-    /**
-     * For Illuminate\filesystem\FilesystemAdapter.
-     *
-     * @param string $path
-     * @param string|null $protocol
-     * @return string
-     */
-    public function getUrl($path, $protocol = null)
-    {
-        return $this->getDownloadUrl($path, $protocol);
     }
 
     /**
@@ -524,17 +447,18 @@ class QiniuAdapter implements AdapterInterface
      */
     public function operationExecute($path, $fops)
     {
-        list($result, $error) = $this->getOperation()->execute($path, $fops);
-
-        if ($error !== null)
-            return false; // todo: throw
-
-        return $result;
+//        list($result, $error) = $this->getOperation()->execute($path, $fops);
+//
+//        if ($error !== null)
+//            return false; // todo: throw
+//
+//        return $result;
     }
 
     /**
      * Execute PersistentFop.
      *
+     * @param string $bucket
      * @param string $path
      * @param string|array $fops
      * @param string|null $pipeline
@@ -542,11 +466,9 @@ class QiniuAdapter implements AdapterInterface
      * @param bool $force
      * @return integer|bool
      */
-    public function persistentFopExecute($path, $fops, $pipeline = null, $notify_url = null, $force = false)
+    public function persistentFopExecute($bucket, $path, $fops, $pipeline = null, $notify_url = null, $force = false)
     {
-        if (!$notify_url) $notify_url = $this->notify_url;
-
-        list($id, $error) = $this->getPersistentFop()->execute($this->bucket, $path, $fops, $pipeline, $notify_url, $force);
+        list($id, $error) = $this->getPersistentFop()->execute($bucket, $path, $fops, $pipeline, $notify_url, $force);
 
         if ($error !== null)
             return false; // todo: throw
@@ -571,128 +493,14 @@ class QiniuAdapter implements AdapterInterface
     }
 
     /**
-     * Set Qiniu Access key.
-     *
-     * @param string $accessKey
-     * @return $this
-     */
-    public function setAccessKey($accessKey)
-    {
-        $this->accessKey = strval($accessKey);
-
-        return $this;
-    }
-
-    /**
-     * Set Qiniu Secret key.
-     *
-     * @param string $secretKey
-     * @return $this
-     */
-    public function setSecretKey($secretKey)
-    {
-        $this->secretKey = strval($secretKey);
-
-        return $this;
-    }
-
-    /**
-     * Set your Bucket.
-     *
-     * @param string $bucket
-     * @return $this
-     */
-    public function setBucket($bucket)
-    {
-        $this->bucket = $bucket;
-
-        return $this;
-    }
-
-    /**
-     * Set your Domain.
-     * Example 'domain.xxx', 'https://domain.xxx'. Default Protocol is 'http'.
-     *
-     * @param string $domain
-     * @return $this
-     */
-    public function setDomain($domain)
-    {
-        list($domain, $protocol) = Util::normalizeDomain($domain);
-
-        $this->domain = $domain;
-
-        $this->protocol = $protocol;
-
-        return $this;
-    }
-
-    /**
-     * Get Domain.
-     *
-     * @return string
-     */
-    public function getDomain()
-    {
-        return $this->domain;
-    }
-
-    /**
-     * Set default Protocol.
-     *
-     * @param string $protocol
-     * @return $this
-     * @throws
-     */
-    public function setProtocol($protocol)
-    {
-        $this->protocol = Util::normalizeScheme($protocol);
-
-        return $this;
-    }
-
-    /**
-     * Get default Protocol.
-     *
-     * @return string
-     */
-    public function getProtocol()
-    {
-        return $this->protocol;
-    }
-
-    /**
-     * Set private Protocol.
-     *
-     * @param string $protocol
-     * @return $this
-     * @throws
-     */
-    public function setPrivateProtocol($protocol)
-    {
-        $this->private_protocol = Util::normalizeScheme($protocol);
-
-        return $this;
-    }
-
-    /**
-     * Get private Protocol.
-     *
-     * @return string
-     */
-    public function getPrivateProtocol()
-    {
-        return $this->private_protocol ?: $this->protocol;
-    }
-
-    /**
      * Get upload token.
      *
+     * @param string $bucket
      * @return string
      */
-    public function getUploadToken()
+    public function getUploadToken($bucket)
     {
-        return $token = $this->getAuth()->uploadToken($this->bucket);
+        return $token = $this->getAuth()->uploadToken($bucket);
     }
 
     /**
@@ -723,19 +531,19 @@ class QiniuAdapter implements AdapterInterface
         return $this->bucketManager = new BucketManager($this->getAuth(), $this->getQiniuConfig());
     }
 
-    /**
-     * Get Operation.
-     *
-     * @return Operation
-     */
-    protected function getOperation()
-    {
-        if ($this->operation instanceof Operation) {
-            return $this->operation;
-        }
-
-        return $this->operation = new Operation($this->getDomain(), $this->getAuth());
-    }
+//    /**
+//     * Get Operation.
+//     *
+//     * @return Operation
+//     */
+//    protected function getOperation()
+//    {
+//        if ($this->operation instanceof Operation) {
+//            return $this->operation;
+//        }
+//
+//        return $this->operation = new Operation($this->getDomain(), $this->getAuth());
+//    }
 
     /**
      * Get PersistentFop.
@@ -782,6 +590,11 @@ class QiniuAdapter implements AdapterInterface
     public function getKeepPath($dirname, $filename = null)
     {
         return FlysystemUtil::normalizePath($dirname . '/' .
-            ($filename ? FlysystemUtil::normalizePath($filename) : '.keep'));
+            ($filename ? FlysystemUtil::normalizePath($filename) : $this->keep_name));
+    }
+
+    public function isNotKeep($file)
+    {
+        return $file['type'] == 'dir' || $file['basename'] != $this->keep_name;
     }
 }
