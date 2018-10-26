@@ -338,9 +338,9 @@ class Qiniu implements QiniuInterface
             if ($error !== null) return false; // todo: throw
             $_data = array_merge($_data, $result['items']);
         } while (array_key_exists('marker', $result) && $marker = $result['marker']);
-        $_data = array_map([Util::class, 'mapFileInfo'], $_data);
+        $_data = array_map([static::class, 'mapFileInfo'], $_data);
         $_data = (new ContentListingFormatter($directory, true))->formatListing($_data);
-        $_data = array_merge($_data, Util::extractDirsWithFilesPath($_data));
+        $_data = array_merge($_data, static::extractDirsWithFilesPath($_data));
 
         return (new ContentListingFormatter($directory, $recursive))->formatListing($_data);
     }
@@ -361,7 +361,7 @@ class Qiniu implements QiniuInterface
 
         $result['key'] = $path;
 
-        return Util::mapFileInfo($result);
+        return static::mapFileInfo($result);
     }
 
     /**
@@ -596,5 +596,45 @@ class Qiniu implements QiniuInterface
     public function isNotKeep($file)
     {
         return $file['type'] == 'dir' || $file['basename'] != $this->keep_name;
+    }
+
+    /**
+     * Supplement info.
+     *
+     * @param array $file
+     * @return array
+     */
+    public static function mapFileInfo(array $file)
+    {
+        $file['type'] = 'file';
+        $file['path'] = $file['key'];
+        $file['timestamp'] = $file['putTime'];
+        $file['size'] = $file['fsize'];
+        $file['mimetype'] = $file['mimeType'];
+
+        return $file;
+    }
+
+    /**
+     * The dir of the records all appeared.
+     *
+     * @param $contents
+     *
+     * @return array
+     */
+    public static function extractDirsWithFilesPath($contents)
+    {
+        $dirs = [];
+        foreach ($contents as $key=>$content) {
+            if(!$content['dirname'] || key_exists($content['dirname'], $dirs))
+                continue;
+            $directory = '';
+            foreach (explode("/",$content['dirname']) as $value) {
+                $directory = FlysystemUtil::normalizePath($directory . '/' . $value);
+                $dirs[$directory]['path'] = $directory;
+                $dirs[$directory]['type'] = 'dir';
+            }
+        }
+        return $dirs;
     }
 }
