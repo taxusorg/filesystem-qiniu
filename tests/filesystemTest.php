@@ -3,12 +3,11 @@ namespace Tests;
 
 use Dotenv\Dotenv;
 use League\Flysystem\Config;
-use League\Flysystem\Util;
 use PHPUnit\Framework\TestCase;
 use Taxusorg\FilesystemQiniu\FilesystemAdapter;
 use Taxusorg\FilesystemQiniu\Qiniu;
 
-class NotifyTest extends TestCase
+class filesystemTest extends TestCase
 {
     private $access_key;
     private $secret_key;
@@ -64,7 +63,7 @@ class NotifyTest extends TestCase
         $this->assertEquals($this->adapter->getDownloadUrl($path), 'ftp://domain.ext/' . $path);
     }
 
-    public function testWrite()
+    public function testWriteAndDelete()
     {
         $path = 'test/testWrite.' . date("Y-m-d-H-i-s") . '.txt';
         $content = 'file content. Date:' . date("Y-m-d H:i:s");
@@ -72,8 +71,13 @@ class NotifyTest extends TestCase
         $result = $this->adapter->write($path, $content, $this->config);
 
         $this->assertEquals($result['path'], $path);
-
         $this->assertEquals($content, $this->adapter->read($path)['contents']);
+
+        $result2 = $this->adapter->delete($path);
+
+        $content2 = $this->adapter->read($path)['contents'];
+
+        $this->assertTrue($result2);
     }
 
     public function testUpdate()
@@ -104,7 +108,7 @@ class NotifyTest extends TestCase
 
         $this->assertEquals($result['path'], $path);
         $this->assertEquals($result2['path'], $path2);
-        // todo: something wrong here.
+
         $this->assertEquals($this->adapter->read($path)['contents'], $this->adapter->read($path2)['contents']);
     }
 
@@ -138,23 +142,19 @@ class NotifyTest extends TestCase
 
     public function testListContents()
     {
-        $path = 'test';
-
-        $files = $this->adapter->listContents($path, false);
-
-        $this->assertTrue(is_array($files));
-    }
-
-    public function testDelete()
-    {
-        $path = 'test/testDelete.' . date("Y-m-d-H-i-s") . '.txt';
+        $dir = 'test';
+        $path = 'test/testWrite.' . date("Y-m-d-H-i-s") . '.txt';
         $content = 'file content. Date:' . date("Y-m-d H:i:s");
 
         $this->adapter->write($path, $content, $this->config);
 
-        $result = $this->adapter->delete($path);
+        $files = $this->adapter->listContents($dir, false);
+        $paths = [];
+        foreach ($files as $file) {
+            $paths[] = $file['path'];
+        }
 
-        $this->assertTrue($result);
+        $this->assertTrue(in_array($path, $paths));
     }
 
     public function testDeleteDir()
