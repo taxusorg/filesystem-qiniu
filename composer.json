@@ -28,7 +28,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Taxusorg\\FilesystemQiniu\\FilesystemServiceProvider"
+                "Taxusorg\\FilesystemQiniu\\QiniuServiceProvider"
             ]
         },
         "branch-alias": {
