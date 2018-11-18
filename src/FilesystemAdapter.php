@@ -4,12 +4,11 @@ namespace Taxusorg\FilesystemQiniu;
 
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
-use League\Flysystem\Util as FlysystemUtil;
 
 class FilesystemAdapter implements AdapterInterface
 {
     protected $bucket;
-    protected $domain = [];
+    protected $domain;
 
     protected $filesystem;
 
@@ -317,7 +316,19 @@ class FilesystemAdapter implements AdapterInterface
             throw new \InvalidArgumentException('Wrong Url.');
         }
 
-        $this->domain = $domain;
+        if (! isset($domain['host'])) {
+            throw new \InvalidArgumentException('No host. '); // todo: exception
+        }
+
+        $url = isset($domain['scheme']) ? $domain['scheme'] : 'http';
+        $url .= '://';
+        $url .= isset($domain['user']) ? $domain['user'] : null;
+        $url .= isset($domain['pass']) ? ':' . $domain['pass'] : null;
+        $url .= (isset($domain['user']) || isset($domain['pass'])) ? '@' : null;
+        $url .= $domain['host'];
+        $url .= isset($domain['port']) ? ':' . $domain['port'] : null;
+
+        $this->domain = $url;
     }
 
     /**
@@ -325,19 +336,11 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function getDomain()
     {
-        if (! isset($this->domain['host'])) {
-            throw new \InvalidArgumentException('No host. '); // todo: exception
+        if (! $this->domain) {
+            throw new \InvalidArgumentException('No domain. '); // todo: exception
         }
 
-        $url = isset($this->domain['scheme']) ? $this->domain['scheme'] : 'http';
-        $url .= '://';
-        $url .= isset($this->domain['user']) ? $this->domain['user'] : null;
-        $url .= isset($this->domain['pass']) ? ':' . $this->domain['pass'] : null;
-        $url .= (isset($this->domain['user']) || isset($this->domain['pass'])) ? '@' : null;
-        $url .= $this->domain['host'];
-        $url .= isset($this->domain['port']) ? ':' . $this->domain['port'] : null;
-
-        return $url;
+        return $this->domain;
     }
 
     public function getUploadToken()
