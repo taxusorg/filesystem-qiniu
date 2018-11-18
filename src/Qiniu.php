@@ -335,7 +335,7 @@ class Qiniu implements QiniuInterface
         $_data = [];
         do {
             list($result, $error) = $this->getBucketManager()->listFiles($bucket, $prefix, $marker, $limit, $delimiter);
-            if ($error !== null) return false; // todo: throw
+            if ($error !== null) return []; // todo: throw
             $_data = array_merge($_data, $result['items']);
         } while (array_key_exists('marker', $result) && $marker = $result['marker']);
         $_data = array_map([static::class, 'mapFileInfo'], $_data);
