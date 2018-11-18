@@ -40,8 +40,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function write($path, $contents, Config $config)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->write($this->bucket, $path, $contents, $config);
     }
 
@@ -57,8 +55,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function writeStream($path, $resource, Config $config)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->writeStream($this->bucket, $path, $resource, $config);
     }
 
@@ -73,8 +69,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function update($path, $contents, Config $config)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->update($this->bucket, $path, $contents, $config);
     }
 
@@ -89,8 +83,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function updateStream($path, $resource, Config $config)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->updateStream($this->bucket, $path, $resource, $config);
     }
 
@@ -104,9 +96,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function rename($path, $newpath)
     {
-        $path = FlysystemUtil::normalizePath($path);
-        $newpath = FlysystemUtil::normalizePath($newpath);
-
         return $this->filesystem->rename($this->bucket, $path, $this->bucket, $newpath); // todo: same bucket
     }
 
@@ -120,9 +109,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function copy($path, $newpath)
     {
-        $path = FlysystemUtil::normalizePath($path);
-        $newpath = FlysystemUtil::normalizePath($newpath);
-
         return $this->filesystem->copy($this->bucket, $path, $this->bucket, $newpath); // todo: same bucket
     }
 
@@ -135,8 +121,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function delete($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->delete($this->bucket, $path);
     }
 
@@ -149,8 +133,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function deleteDir($dirname)
     {
-        $dirname = FlysystemUtil::normalizePath($dirname);
-
         return $this->filesystem->deleteDir($this->bucket, $dirname);
     }
 
@@ -164,8 +146,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function createDir($dirname, Config $config)
     {
-        $dirname = FlysystemUtil::normalizePath($dirname);
-
         return $this->filesystem->createDir($this->bucket, $dirname, $config);
     }
 
@@ -179,8 +159,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function setVisibility($path, $visibility)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return []; // todo: visibility
     }
 
@@ -193,8 +171,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function has($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->has($this->bucket, $path);
     }
 
@@ -207,8 +183,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function read($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->read($this->getDownloadUrl($path));
     }
 
@@ -234,8 +208,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function listContents($directory = '', $recursive = false)
     {
-        $directory = FlysystemUtil::normalizePath($directory);
-
         return $this->filesystem->listContents($this->bucket, $directory, $recursive);
     }
 
@@ -248,8 +220,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function getMetadata($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->getMetadata($this->bucket, $path);
     }
 
@@ -262,8 +232,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function getSize($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->getSize($this->bucket, $path);
     }
 
@@ -276,8 +244,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function getMimetype($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->getMimetype($this->bucket, $path);
     }
 
@@ -290,8 +256,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function getTimestamp($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->filesystem->getTimestamp($this->bucket, $path);
     }
 
@@ -304,8 +268,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function getVisibility($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return ['visibility' => static::VISIBILITY_PUBLIC]; // todo: visibility
     }
 
@@ -315,8 +277,6 @@ class FilesystemAdapter implements AdapterInterface
      */
     public function getDownloadUrl($path)
     {
-        $path = FlysystemUtil::normalizePath($path);
-
         return $this->getDomain() . '/' . $path;
     }
 
