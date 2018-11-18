@@ -25,6 +25,12 @@ class QiniuServiceProvider extends ServiceProvider
                 return $this->app->make(Manager::class)->get($disk, $bucket);
             });
         });
+
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/../config/qiniu.php' => $this->app['path.config'].DIRECTORY_SEPARATOR.'qiniu.php',
+            ]);
+        }
     }
 
     protected function getConfig()
