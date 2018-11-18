@@ -2,7 +2,6 @@
 namespace Taxusorg\FilesystemQiniu;
 
 use Illuminate\Support\ServiceProvider;
-use League\Flysystem\Filesystem;
 use Taxusorg\FilesystemQiniu\Adapter\QiniuAdapter;
 
 class QiniuServiceProvider extends ServiceProvider
