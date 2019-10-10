@@ -46,7 +46,18 @@ class QiniuAdapter implements AdapterInterface
 
         $this->qiniuConfig = new QiniuConfig();
 
+        if ($thumbnail == null && isset($config['thumbnail']) && is_array($config['thumbnail'])) {
+            $this->thumbnail = new Thumbnail($config['thumbnail']);
+        } else {
+            $this->thumbnail = $thumbnail;
+        }
+    }
+
+    public function setThumbnail(Thumbnail $thumbnail)
+    {
         $this->thumbnail = $thumbnail;
+
+        return $this;
     }
 
     /**
