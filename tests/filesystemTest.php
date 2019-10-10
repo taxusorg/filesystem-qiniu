@@ -7,6 +7,7 @@ use League\Flysystem\Config;
 use League\Flysystem\Util;
 use PHPUnit\Framework\TestCase;
 use Taxusorg\FilesystemQiniu\Adapter\QiniuAdapter;
+use Taxusorg\FilesystemQiniu\Thumbnail;
 
 class NotifyTest extends TestCase
 {
@@ -20,17 +21,26 @@ class NotifyTest extends TestCase
 
         date_default_timezone_set('PRC');
 
-        $dotenv = new Dotenv('./');
+        $dotenv = new Dotenv('../');
         $dotenv->load();
 
         $this->config = new Config();
 
-        $this->adapter = new QiniuAdapter();
+        $this->adapter = new QiniuAdapter([], new Thumbnail(['mode' => 2, 'width' => 144]));
         $this->adapter->setAccessKey($_ENV['KEY']);
         $this->adapter->setSecretKey($_ENV['SECRET']);
         $this->adapter->setBucket($_ENV['BUCKET']);
         $this->adapter->setDomain($_ENV['DOMAIN']);
 
+    }
+
+    public function testThumbnailQueries()
+    {
+        $thumbnail = new Thumbnail(['width' => 30, 'height' => 120]);
+
+        $queries = $thumbnail->getUrl('testing?a', ['mode' => 2]);
+
+        $this->assertEquals($queries, 'testing?a&imageView2/2/w/30/h/120');
     }
 
     public function testGetUploadToken()
@@ -134,7 +144,7 @@ class NotifyTest extends TestCase
 
     public function testListContents()
     {
-        $path = 'test';
+        $path = '/';
 
         $files = $this->adapter->listContents($path, false);
 

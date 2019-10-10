@@ -55,6 +55,14 @@ class Util
         return dirname(FlysystemUtil::normalizePath($path));
     }
 
+    public static function isImage(array $file)
+    {
+        if (isset($file['mimetype']) && strpos($file['mimetype'], 'image') === 0)
+            return true;
+
+        return false;
+    }
+
     /**
      * @param string $domain
      * @return array
@@ -64,7 +72,7 @@ class Util
         $parsed_url = parse_url(trim($domain));
         $scheme     = isset($parsed_url['scheme']) ? $parsed_url['scheme'] : 'http';
         $path       = isset($parsed_url['path']) ? FlysystemUtil::normalizePath($parsed_url['path']) : '';
-        $host       = isset($parsed_url['host']) ? $parsed_url['host']. '/' .$path : $path;
+        $host       = isset($parsed_url['host']) ? $parsed_url['host']. ($path ? '/'.$path : null) : $path;
 
         return [$host, $scheme];
     }

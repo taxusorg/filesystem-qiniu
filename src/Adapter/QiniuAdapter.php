@@ -3,6 +3,7 @@ namespace Taxusorg\FilesystemQiniu\Adapter;
 
 use Qiniu\Processing\Operation;
 use Qiniu\Processing\PersistentFop;
+use Taxusorg\FilesystemQiniu\Thumbnail;
 use Taxusorg\FilesystemQiniu\Util;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
@@ -32,7 +33,9 @@ class QiniuAdapter implements AdapterInterface
     private $persistentFop;
     private $qiniuConfig;
 
-    public function __construct($config = [])
+    private $thumbnail;
+
+    public function __construct($config = [], Thumbnail $thumbnail = null)
     {
         isset($config['key']) && $this->setAccessKey($config['key']);
         isset($config['secret']) && $this->setSecretKey($config['secret']);
@@ -42,6 +45,8 @@ class QiniuAdapter implements AdapterInterface
         isset($config['private_protocol']) && $this->setPrivateProtocol($config['private_protocol']);
 
         $this->qiniuConfig = new QiniuConfig();
+
+        $this->thumbnail = $thumbnail;
     }
 
     /**
@@ -354,6 +359,21 @@ class QiniuAdapter implements AdapterInterface
     }
 
     /**
+     * @param $prefix
+     * @param null $marker
+     * @param int $limit
+     * @param null $delimiter
+     * @return bool|array
+     */
+    protected function getContentsFromBucket($prefix, $marker = null, $limit = 1000, $delimiter = null)
+    {
+        list($result, $error) = $this->getBucketManager()->listFiles($this->bucket, $prefix, $marker, $limit, $delimiter);
+        if ($error !== null) return false; // todo: throw
+
+        return $result;
+    }
+
+    /**
      * List contents of a directory.
      *
      * @param string $directory
@@ -370,15 +390,59 @@ class QiniuAdapter implements AdapterInterface
         $delimiter = null; // todo: delimiter able
         $_data = [];
         do {
-            list($result, $error) = $this->getBucketManager()->listFiles($this->bucket, $prefix, $marker, $limit, $delimiter);
-            if ($error !== null) return false; // todo: throw
-            $_data = array_merge($_data, $result['items']);
+            $result = $this->getContentsFromBucket($prefix, $marker, $limit, $delimiter);
+            if ($result === false) {
+                return false; // todo: throw
+            } else {
+                $_data = array_merge($_data, $result['items']);
+            }
         } while (array_key_exists('marker', $result) && $marker = $result['marker']);
         $_data = array_map([Util::class, 'mapFileInfo'], $_data);
         $_data = (new ContentListingFormatter($directory, true))->formatListing($_data);
         $_data = array_merge($_data, Util::extractDirsWithFilesPath($_data));
 
+        $this->listThumbnails($_data);
+
         return (new ContentListingFormatter($directory, $recursive))->formatListing($_data);
+    }
+
+    /**
+     * @param string $directory
+     * @param int $limit
+     * @return bool|array
+     */
+    protected function listContentsPart($directory = '', $limit = 1)
+    {
+        $directory = FlysystemUtil::normalizePath($directory);
+
+        $result = $this->getContentsFromBucket($directory, null, $limit);
+
+        if ($result === false)
+            return false;
+
+        return $result['items'];
+    }
+
+    public function listThumbnails(&$_data)
+    {
+        foreach ($_data as $key=>$datum) {
+            if (isset($datum['key']) && isset($datum['mimetype']) && $this->canThumbnail($datum['mimetype'])) {
+                $_data[$key]['thumbnailUrl'] = $this->getThumbnailUrl($datum['key']);
+            };
+        }
+    }
+
+    public function canThumbnail($mimeType)
+    {
+        return in_array(strtolower($mimeType), [
+//            'psd',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'image/tiff',
+            'image/bmp',
+        ]);
     }
 
     /**
@@ -409,7 +473,12 @@ class QiniuAdapter implements AdapterInterface
      */
     public function has($path)
     {
-        return $this->stat($path) ? true : false;
+        if ($this->stat($path))
+            return true;
+
+        $result = $this->listContentsPart($path);
+
+        return $result && ! empty($result);
     }
 
     /**
@@ -501,6 +570,14 @@ class QiniuAdapter implements AdapterInterface
         $location = $this->getAuth()->privateDownloadUrl($url);
         // todo: if file not exists.
         return $location;
+    }
+
+    public function getThumbnailUrl($path, array $config = [])
+    {
+        if ($this->thumbnail)
+            return $this->thumbnail->getUrl($this->getDownloadUrl($path));
+
+        return false;
     }
 
     /**
