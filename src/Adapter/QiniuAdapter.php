@@ -61,6 +61,15 @@ class QiniuAdapter implements AdapterInterface
     }
 
     /**
+     *
+     * @return \Taxusorg\FilesystemQiniu\Thumbnail
+     */
+    public function getThumbnail()
+    {
+        return $this->thumbnail;
+    }
+
+    /**
      * Write a new file.
      *
      * @param string $path
@@ -412,8 +421,6 @@ class QiniuAdapter implements AdapterInterface
         $_data = (new ContentListingFormatter($directory, true))->formatListing($_data);
         $_data = array_merge($_data, Util::extractDirsWithFilesPath($_data));
 
-        $this->listThumbnails($_data);
-
         return (new ContentListingFormatter($directory, $recursive))->formatListing($_data);
     }
 
@@ -432,15 +439,6 @@ class QiniuAdapter implements AdapterInterface
             return false;
 
         return $result['items'];
-    }
-
-    public function listThumbnails(&$_data)
-    {
-        foreach ($_data as $key=>$datum) {
-            if (isset($datum['key']) && isset($datum['mimetype']) && $this->canThumbnail($datum['mimetype'])) {
-                $_data[$key]['thumbnailUrl'] = $this->getThumbnailUrl($datum['key']);
-            };
-        }
     }
 
     public function canThumbnail($mimeType)
@@ -583,12 +581,17 @@ class QiniuAdapter implements AdapterInterface
         return $location;
     }
 
-    public function getThumbnailUrl($path, array $config = [])
+    public function getThumbnailUrl($path, array $config = [], $protocol = null)
     {
         if ($this->thumbnail)
-            return $this->thumbnail->getUrl($this->getDownloadUrl($path));
+            return $this->thumbnail->getUrl($this->getDownloadUrl($path, $protocol));
 
         return false;
+    }
+
+    public function thumbnailUrl($path, array $config = [], $protocol = null)
+    {
+        return $this->getThumbnailUrl($path, $config, $protocol);
     }
 
     /**
@@ -601,6 +604,11 @@ class QiniuAdapter implements AdapterInterface
     public function getUrl($path, $protocol = null)
     {
         return $this->getDownloadUrl($path, $protocol);
+    }
+
+    public function url($path, $protocol = null)
+    {
+        return $this->getUrl($path, $protocol);
     }
 
     /**

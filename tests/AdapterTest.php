@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Taxusorg\FilesystemQiniu\Adapter\QiniuAdapter;
 use Taxusorg\FilesystemQiniu\Thumbnail;
 
-class NotifyTest extends TestCase
+class AdapterTest extends TestCase
 {
     protected $adapter;
 

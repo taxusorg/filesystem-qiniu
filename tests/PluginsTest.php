@@ -9,7 +9,8 @@ use Taxusorg\FilesystemQiniu\Adapter\QiniuAdapter;
 use Taxusorg\FilesystemQiniu\Plugin\GetUrl;
 use Taxusorg\FilesystemQiniu\Plugin\ListByExtension;
 use Taxusorg\FilesystemQiniu\Plugin\ListImages;
-use Taxusorg\FilesystemQiniu\Plugin\ThumbnailUrl;
+use Taxusorg\FilesystemQiniu\Plugin\GetThumbnailUrl;
+use Taxusorg\FilesystemQiniu\Thumbnail;
 
 class PluginsTest extends TestCase
 {
@@ -24,12 +25,12 @@ class PluginsTest extends TestCase
 
         date_default_timezone_set('PRC');
 
-        $dotenv = new Dotenv('./');
+        $dotenv = new Dotenv('../');
         $dotenv->load();
 
         $this->config = new Config();
 
-        $this->adapter = new QiniuAdapter();
+        $this->adapter = new QiniuAdapter([],  new Thumbnail(['mode' => 2, 'width' => 144]));
         $this->adapter->setAccessKey($_ENV['KEY']);
         $this->adapter->setSecretKey($_ENV['SECRET']);
         $this->adapter->setBucket($_ENV['BUCKET']);
@@ -39,26 +40,30 @@ class PluginsTest extends TestCase
         $this->filesystem->addPlugin(new GetUrl());
         $this->filesystem->addPlugin(new ListImages());
         $this->filesystem->addPlugin(new ListByExtension());
-        $this->filesystem->addPlugin(new ThumbnailUrl());
+        $this->filesystem->addPlugin(new GetThumbnailUrl());
     }
 
     function testGetUrl()
     {
         $url = $this->filesystem->getUrl('dir/file test.ext');
+
+        $this->assertEquals($url, $_ENV['DOMAIN'] . '/dir/file%20test.ext');
     }
 
-    function testListImages()
-    {
-        $list = $this->filesystem->listImages('');
-    }
+//     function testListImages()
+//     {
+//         $list = $this->filesystem->listImages('');
+//     }
 
-    function testListByExtension()
-    {
-        $list = $this->filesystem->listByExtension('', 'txt');
-    }
+//     function testListByExtension()
+//     {
+//         $list = $this->filesystem->listByExtension('', 'txt');
+//     }
 
     function testThumbnailUrl()
     {
-        $url = $this->filesystem->thumbnailUrl('file.png');
+        $url = $this->filesystem->getThumbnailUrl('file.png');
+
+        $this->assertEquals($url, $_ENV['DOMAIN'] . '/file.png?imageView2/2/w/144');
     }
 }
