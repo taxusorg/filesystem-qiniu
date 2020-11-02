@@ -3,6 +3,7 @@ namespace Taxusorg\FilesystemQiniu\Adapter;
 
 use Qiniu\Processing\Operation;
 use Qiniu\Processing\PersistentFop;
+use Taxusorg\FilesystemQiniu\Exceptions\QiniuException;
 use Taxusorg\FilesystemQiniu\Thumbnail;
 use Taxusorg\FilesystemQiniu\Util;
 use League\Flysystem\AdapterInterface;
@@ -91,8 +92,8 @@ class QiniuAdapter implements AdapterInterface
         );
 
         if($error !== null)
-            return false;
-        // todo: throw
+            throw new QiniuException($error);
+
         return compact('path');
     }
 
@@ -147,8 +148,8 @@ class QiniuAdapter implements AdapterInterface
         }
 
         if($error !== null)
-            return false;
-        // todo: throw
+            throw new QiniuException($error);
+
         return compact('path');
     }
 
@@ -194,8 +195,8 @@ class QiniuAdapter implements AdapterInterface
         $error = $this->getBucketManager()->move($this->bucket, $old, $this->bucket, $new, false);
 
         if ($error !== null)
-            return false;
-        // todo: throw
+            throw new QiniuException($error);
+
         return true;
     }
 
@@ -214,8 +215,8 @@ class QiniuAdapter implements AdapterInterface
         $error = $this->getBucketManager()->copy($this->bucket, $old, $this->bucket, $new, false);
 
         if ($error !== null)
-            return false;
-        // todo: throw
+            throw new QiniuException($error);
+
         return true;
     }
 
@@ -232,8 +233,8 @@ class QiniuAdapter implements AdapterInterface
         $error = $this->getBucketManager()->delete($this->bucket, $path);
 
         if ($error !== null)
-            return false;
-        // todo: throw
+            throw new QiniuException($error);
+
         return true;
     }
 
@@ -255,8 +256,8 @@ class QiniuAdapter implements AdapterInterface
         list($result, $error) = $this->getBucketManager()->batch($ops);
 
         if ($error !== null)
-            return false;
-        // todo: throw
+            throw new QiniuException($error);
+
         return true;
     }
 
@@ -388,7 +389,7 @@ class QiniuAdapter implements AdapterInterface
     protected function getContentsFromBucket($prefix, $marker = null, $limit = 1000, $delimiter = null)
     {
         list($result, $error) = $this->getBucketManager()->listFiles($this->bucket, $prefix, $marker, $limit, $delimiter);
-        if ($error !== null) return false; // todo: throw
+        if ($error !== null) throw new QiniuException($error);
 
         return $result;
     }
@@ -467,7 +468,7 @@ class QiniuAdapter implements AdapterInterface
         list($result, $error) = $this->getBucketManager()->stat($this->bucket, $path);
 
         if ($error !== null)
-            return false; // todo: false or throw
+            throw new QiniuException($error);
 
         $result['key'] = $path;
 
@@ -623,7 +624,7 @@ class QiniuAdapter implements AdapterInterface
         list($result, $error) = $this->getOperation()->execute($path, $fops);
 
         if ($error !== null)
-            return false; // todo: throw
+            throw new QiniuException($error);
 
         return $result;
     }
@@ -645,7 +646,7 @@ class QiniuAdapter implements AdapterInterface
         list($id, $error) = $this->getPersistentFop()->execute($this->bucket, $path, $fops, $pipeline, $notify_url, $force);
 
         if ($error !== null)
-            return false; // todo: throw
+            throw new QiniuException($error);
 
         return $id;
     }
@@ -661,7 +662,7 @@ class QiniuAdapter implements AdapterInterface
         list($json, $error) = $this->getPersistentFop()->status($id);
 
         if ($error !== null)
-            return false; // todo: throw
+            throw new QiniuException($error);
 
         return $json;
     }
