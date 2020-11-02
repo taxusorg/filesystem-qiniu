@@ -79,26 +79,22 @@ class Util
 
     public static function normalizeScheme($protocol = null, $default = 'http')
     {
-        if (! in_array($default, ['http', 'https'])) {
-            if ($default === true) {
-                $default = 'https';
-            } elseif ($default === false) {
-                $default = 'http';
-            } else {
-                throw new \Error('scheme mast in [true, false, "http", "https"]');
-            }
+        if (is_string($protocol) && in_array($protocol, ['http', 'https'])) {
+            return $protocol;
         }
 
-        if (! in_array($protocol, ['http', 'https'])) {
-            if ($protocol === true) {
-                $protocol = 'https';
-            } elseif ($protocol === false) {
-                $protocol = 'http';
-            } else {
-                $protocol = $default;
-            }
+        if (true === $protocol) {
+            return 'https';
         }
 
-        return $protocol;
+        if (false === $protocol) {
+            return 'http';
+        }
+
+        if (null === $protocol) {
+            return self::normalizeScheme($default, 'http');
+        }
+
+        throw new \Error('scheme mast in [true, false, "http", "https"]');
     }
 }
