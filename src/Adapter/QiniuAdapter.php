@@ -63,7 +63,7 @@ class QiniuAdapter implements AdapterInterface
 
     /**
      *
-     * @return \Taxusorg\FilesystemQiniu\Thumbnail
+     * @return Thumbnail
      */
     public function getThumbnail()
     {
