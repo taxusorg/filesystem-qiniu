@@ -546,14 +546,6 @@ class QiniuAdapter implements AdapterInterface
         return ['visibility' => static::VISIBILITY_PUBLIC];
     }
 
-    /**
-     * Get url
-     *
-     * @param string $path
-     * @param string|null $protocol
-     * @return string
-     * @throws
-     */
     public function getDownloadUrl($path, $protocol = null)
     {
         $path = FlysystemUtil::normalizePath($path);
@@ -565,29 +557,32 @@ class QiniuAdapter implements AdapterInterface
         return $baseUrl;
     }
 
-    /**
-     * Get url for Read.
-     *
-     * @param string $path
-     * @param string|null $protocol
-     * @return string
-     * @throws
-     */
     public function getPrivateDownloadUrl($path, $protocol = null)
     {
+        if (! $protocol) $protocol = $this->private_protocol;
+
         $url = $this->getDownloadUrl($path, $protocol);
 
-        $location = $this->getAuth()->privateDownloadUrl($url);
-        // todo: if file not exists.
-        return $location;
+        return $this->getAuth()->privateDownloadUrl($url);
     }
 
     public function getThumbnailUrl($path, array $config = [], $protocol = null)
     {
         if ($this->thumbnail)
-            return $this->thumbnail->getUrl($this->getDownloadUrl($path, $protocol));
+            return $this->thumbnail->getUrl($this->getDownloadUrl($path, $protocol), $config);
 
-        return false;
+        return null;
+    }
+
+    public function getPrivateThumbnailUrl($path, array $config = [], $protocol = null)
+    {
+        if (! $protocol) $protocol = $this->private_protocol;
+
+        $url = $this->getThumbnailUrl($path, $config, $protocol);
+
+        if (! $url) return $url;
+
+        return $this->getAuth()->privateDownloadUrl($url);
     }
 
     public function thumbnailUrl($path, array $config = [], $protocol = null)
