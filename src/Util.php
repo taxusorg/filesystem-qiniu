@@ -2,6 +2,7 @@
 namespace Taxusorg\FilesystemQiniu;
 
 use League\Flysystem\Util as FlysystemUtil;
+use League\Flysystem\Util\ContentListingFormatter;
 
 class Util
 {
@@ -22,34 +23,6 @@ class Util
         return $file;
     }
 
-    /**
-     * The dir of the records all appeared.
-     *
-     * @param $contents
-     *
-     * @return array
-     */
-    public static function extractDirsWithFilesPath($contents)
-    {
-        $dirs = [];
-        foreach ($contents as $key=>$content) {
-            if(!$content['dirname'] || key_exists($content['dirname'], $dirs))
-                continue;
-            $directory = '';
-            foreach (explode("/",$content['dirname']) as $value) {
-                $directory = FlysystemUtil::normalizePath($directory . '/' . $value);
-                $dirs[$directory]['path'] = $directory;
-                $dirs[$directory]['type'] = 'dir';
-            }
-        }
-        return $dirs;
-    }
-
-    public static function isNotKeep($file)
-    {
-        return $file['type'] == 'dir' || $file['basename'] != '.keep';
-    }
-
     public static function dirname($path)
     {
         return dirname(FlysystemUtil::normalizePath($path));
@@ -61,6 +34,15 @@ class Util
             return true;
 
         return false;
+    }
+
+    /**
+     * @param string $path
+     * @return string
+     */
+    public static function normalizePath($path)
+    {
+        return FlysystemUtil::normalizePath($path);
     }
 
     /**
@@ -97,4 +79,39 @@ class Util
 
         throw new \Error('scheme mast in [true, false, "http", "https"]');
     }
+
+    /**
+     * The dir of the records all appeared.
+     *
+     * @param $contents
+     *
+     * @return array
+     */
+    public static function extractDirsWithFilesPath($contents)
+    {
+        $dirs = [];
+        foreach ($contents as $key=>$content) {
+            if(! $content['dirname'] || key_exists($content['dirname'], $dirs))
+                continue;
+            $directory = '';
+            foreach (explode("/",$content['dirname']) as $value) {
+                $directory = FlysystemUtil::normalizePath($directory . '/' . $value);
+                $dirs[$directory]['path'] = $directory;
+                $dirs[$directory]['type'] = 'dir';
+            }
+        }
+        return $dirs;
+    }
+
+    /**
+     * @param string $dir
+     * @param array $data
+     * @param bool $recursive
+     * @return array
+     */
+    public static function formatListing($dir, $data = [], $recursive = true)
+    {
+        return (new ContentListingFormatter($dir, $recursive))->formatListing($data);
+    }
+
 }
